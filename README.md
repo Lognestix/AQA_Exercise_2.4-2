@@ -86,77 +86,89 @@ public class VerificationPage {
 ```Java
 package ru.netology.page;
 
-import com.codeborne.selenide.ElementsCollection;
 import com.codeborne.selenide.SelenideElement;
-import org.openqa.selenium.Keys;
-import ru.netology.data.NotFoundException;
 
+import static com.codeborne.selenide.Condition.text;
 import static com.codeborne.selenide.Condition.visible;
 import static com.codeborne.selenide.Selenide.$;
-import static com.codeborne.selenide.Selenide.$$;
 
 public class DashboardPage {
   private final SelenideElement heading = $("[data-test-id=dashboard]");
-  private static final ElementsCollection cards = $$(".list__item");
-  private static final String balanceStart = "баланс:";
-  private static final String balanceFinish = "р.";
-  private static final SelenideElement amountField = $("[data-test-id=amount] input");
-  private static final SelenideElement fromField = $("[data-test-id=from] input");
-  private static final SelenideElement actionTransferButton = $("[data-test-id=action-transfer]");
+  private final SelenideElement title = $("h1.heading");
+  private final String balanceStart = "баланс:";
+  private final String balanceFinish = "р.";
 
   public DashboardPage() {
     heading.shouldBe(visible);
+    title.shouldHave(text("Ваши карты"));
   }
 
-  public static int getCardBalance(String id) {
-    for (SelenideElement card : cards) {
-      var attributeValue = card.find("[data-test-id]").attr("data-test-id");
-      assert attributeValue != null;
-      if (attributeValue.equals(id)) {
-        return extractBalance(card.text());
-      }
-    }
-    throw new NotFoundException(
-            "Card with id: " + id + " not found");
-  }
-
-    private static int extractBalance(String cardInfo) {
-    var value = cardInfo.substring    //Вырезается нужная часть строки
-            (cardInfo.indexOf(balanceStart) + balanceStart.length(),    //Начальная позиция (исключительно) плюс смещение
-                    cardInfo.indexOf(balanceFinish))    //Конечная позиция (включительно)
-            .trim();    //Обрезка начального и конечного пробелов
+  private int extractBalance(String cardInfo) {
+    //Вырезается нужная часть строки:
+    var value = cardInfo.substring
+            //Начальная позиция (исключительно) плюс смещение:
+                    (cardInfo.indexOf(balanceStart) + balanceStart.length(),
+                            //Конечная позиция (включительно):
+                            cardInfo.indexOf(balanceFinish))
+            //Обрезка начального и конечного пробелов:
+            .trim();
     return Integer.parseInt(value);
   }
 
-  public static void transferBetweenOwnCards(String idCard, String numberCard, int amount) {
-    for (SelenideElement card : cards) {
-      var attributeValue = card.find("[data-test-id]").attr("data-test-id");
-      assert attributeValue != null;
-      if (attributeValue.equals(idCard)) {
-        card.find("[data-test-id=action-deposit]").click();
-        amountField.sendKeys(Keys.CONTROL + "a");
-        amountField.sendKeys(Keys.DELETE);
-        amountField.setValue(String.valueOf(amount));
-        fromField.sendKeys(Keys.CONTROL + "a");
-        fromField.sendKeys(Keys.DELETE);
-        fromField.setValue(numberCard);
-        actionTransferButton.click();
-        return;
-      }
-    }
+  public int getCardBalance(String cardId) {
+    return extractBalance($("[data-test-id='" + cardId + "']").getText());
+  }
+
+  public ReplenishmentPage transfer(String cardId) {
+    $("[data-test-id='" + cardId + "'] [data-test-id=action-deposit]").click();
+    return new ReplenishmentPage();
   }
 }
 ```
 ```Java
-package ru.netology.data;
+package ru.netology.page;
 
-public class NotFoundException extends RuntimeException {
-    public NotFoundException(String msg) {
-        super(msg);
+import com.codeborne.selenide.SelenideElement;
+import org.openqa.selenium.Keys;
+
+import static com.codeborne.selenide.Condition.text;
+import static com.codeborne.selenide.Condition.visible;
+import static com.codeborne.selenide.Selenide.$;
+
+public class ReplenishmentPage {
+    private final SelenideElement heading = $("[data-test-id=dashboard]");
+    private final SelenideElement title = $("h1.heading");
+    private final SelenideElement amountField = $("[data-test-id=amount] input");
+    private final SelenideElement fromField = $("[data-test-id=from] input");
+    private final SelenideElement transferButton = $("[data-test-id=action-transfer]");
+    private final SelenideElement errorNotification = $("[data-test-id=error-notification]");
+    private final SelenideElement cancelButton = $("[data-test-id=action-cancel]");
+
+    public ReplenishmentPage() {
+        heading.shouldBe(visible);
+        title.shouldHave(text("Пополнение карты"));
+    }
+
+    private void fieldClearing() {
+        amountField.sendKeys(Keys.CONTROL + "a");
+        amountField.sendKeys(Keys.DELETE);
+        fromField.sendKeys(Keys.CONTROL + "a");
+        fromField.sendKeys(Keys.DELETE);
+    }
+
+    public DashboardPage transferBetweenOwnCards(int amount, String numberCard) {
+        fieldClearing();
+        amountField.setValue(String.valueOf(amount));
+        fromField.setValue(numberCard);
+        transferButton.click();
+        if(errorNotification.is(visible)) {
+            cancelButton.click();
+        }
+        return new DashboardPage();
     }
 }
 ```
-## Запуск авто-тестов Cucumber находящиихся в этом репозитории.
+## Запуск авто-тестов BDD (Cucumber) находящиихся в этом репозитории.
 ```Java
 import io.cucumber.junit.Cucumber;
 import io.cucumber.junit.CucumberOptions;
@@ -178,16 +190,18 @@ import com.codeborne.selenide.Selenide;
 import io.cucumber.java.ru.Когда;
 import io.cucumber.java.ru.Пусть;
 import io.cucumber.java.ru.Тогда;
-import ru.netology.page.DashboardPage;
 import ru.netology.page.LoginPage;
 import ru.netology.page.VerificationPage;
+import ru.netology.page.DashboardPage;
+import ru.netology.page.ReplenishmentPage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TemplateSteps {
     private static LoginPage loginPage;
-    private static DashboardPage dashboardPage;
     private static VerificationPage verificationPage;
+    private static DashboardPage dashboardPage;
+    private static ReplenishmentPage replenishmentPage;
 
     @Пусть("пользователь залогинен на странице {string} с именем {string} " +
             "и паролем {string} с введенным проверочным кодом 'из смс' {string}")
@@ -199,12 +213,13 @@ public class TemplateSteps {
 
     @Когда("пользователь на свою первую карту c id {string} с карты с номером {string} переведет {int} рублей")
     public void moneyTransferBetweenOwnCards(String idCard, String numberCard, int amount) {
-        DashboardPage.transferBetweenOwnCards(idCard, numberCard, amount);
+        replenishmentPage = dashboardPage.transfer(idCard);
+        replenishmentPage.transferBetweenOwnCards(amount, numberCard);
     }
 
     @Тогда("баланс его первойй карты c id {string} из списка на главной странице должен стать {int} рублей")
-    public void verifyCodeIsInvalid(String id, int finalBalance) {
-        assertEquals(finalBalance, DashboardPage.getCardBalance(id));
+    public void verifyCodeIsInvalid(String idCard, int expectedBalance) {
+        assertEquals(expectedBalance, dashboardPage.getCardBalance(idCard));
     }
 }
 ```

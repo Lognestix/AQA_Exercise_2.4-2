@@ -1,5 +1,5 @@
 ## `Статус сборки` [![Build status](https://ci.appveyor.com/api/projects/status/bm64h5m2momjgw7r?svg=true)](https://ci.appveyor.com/project/Lognestix/aqa-exercise-2-4-2)
-# Репортинг (AQA_Exercise_2.4-2)
+# BDD (AQA_Exercise_2.4-2)
 ## Домашнее задание по курсу "Автоматизированное тестирование"
 ## Тема: «2.4. BDD», задание №2: «BDD»
 - На базе инструмента Cucumber, при использовании Page Object's, реализованы следующие Steps:
